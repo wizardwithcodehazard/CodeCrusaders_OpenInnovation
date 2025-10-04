@@ -133,3 +133,107 @@ def image_to_text(request):
 
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
+
+
+import os
+import json
+import subprocess
+import tempfile
+import google.generativeai as genai
+
+from django.conf import settings
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+
+
+def build_gemini_prompt(problem_text: str) -> str:
+    return f"""
+You are an expert in mathematics, physics, electrical engineering, mechanical engineering, and symbolic computation. 
+You have access to the Wolfram Engine through the Python WolframClient.
+
+Your job:
+1. Read the following problem:
+---
+{problem_text}
+---
+
+2. Decide what type of computation is needed (algebra, calculus, circuit analysis, physics formula, mechanics, etc.).
+
+3. Write a **Python script** that:
+   - Uses wolframclient.evaluation.WolframLanguageSession and wolframclient.language.wlexpr.
+   - Defines the problem in Wolfram Language.
+   - Evaluates the required symbolic or numeric computations.
+   - Converts results to human-readable strings using ToString[InputForm[expr]].
+   - Returns all results in a single Python dictionary called `results`.
+   - Prints ONLY the JSON string of this dictionary using json.dumps(results).
+   - Ensure session.terminate() is called at the end.
+
+4. Constraints:
+- Output ONLY Python code. 
+- No explanations, no markdown.
+"""
+import sys
+
+@csrf_exempt
+@require_POST
+def solve_problem(request):
+    problem_text = request.POST.get("problem")
+    if not problem_text:
+        return HttpResponseBadRequest("Missing 'problem' field")
+
+    try:
+        # Step 1: Generate Python code from Gemini
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        response = model.generate_content(build_gemini_prompt(problem_text))
+
+        # Step 2: Extract Python code (strip markdown if present)
+        code_text = response.text.strip()
+        if code_text.startswith("```python"):
+            code_text = code_text[len("```python"):].strip()
+        if code_text.endswith("```"):
+            code_text = code_text[:-3].strip()
+
+        tmp_path = None
+        try:
+            # Step 3: Write to temporary file (Windows-safe)
+            with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w", encoding="utf-8") as tmp:
+                tmp.write(code_text)
+                tmp_path = tmp.name
+
+            # Step 4: Run the temp script using venv Python
+            proc = subprocess.run(
+                [sys.executable, tmp_path],
+                capture_output=True,
+                text=True,
+                timeout=30,
+                encoding="utf-8",
+                errors="replace"
+            )
+
+        finally:
+            # Always clean up temp file
+            if tmp_path and os.path.exists(tmp_path):
+                os.unlink(tmp_path)
+
+        # Step 5: Handle script errors
+        if proc.returncode != 0:
+            return JsonResponse({"error": proc.stderr.strip()}, status=500)
+
+        # Step 6: Extract JSON safely
+        stdout_clean = proc.stdout.strip()
+        json_start = stdout_clean.find("{")
+        json_end = stdout_clean.rfind("}") + 1
+        if json_start == -1 or json_end == -1:
+            return JsonResponse({"error": "No JSON output found", "raw": stdout_clean}, status=500)
+
+        try:
+            results = json.loads(stdout_clean[json_start:json_end])
+        except json.JSONDecodeError as e:
+            return JsonResponse({"error": f"Invalid JSON: {str(e)}", "raw": stdout_clean}, status=500)
+
+        return JsonResponse({"results": results})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
