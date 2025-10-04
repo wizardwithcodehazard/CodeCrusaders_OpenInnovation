@@ -268,7 +268,6 @@ genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
 MEDIA_DIR = os.path.join(settings.BASE_DIR, "media", "videos")
 os.makedirs(MEDIA_DIR, exist_ok=True)
 
-# Prompt template for Manim video generation
 def build_manim_prompt(problem_text: str, results_json: dict) -> str:
     results_str = json.dumps(results_json, indent=2)
     return f"""
@@ -293,6 +292,23 @@ config.pixel_width = 854
 config.pixel_height = 480
 config.frame_rate = 15
 ```
+
+## VALID MANIM COLORS
+
+ONLY use these predefined Manim color constants. NEVER invent color names:
+- Basic: WHITE, BLACK, GRAY, GREY, RED, GREEN, BLUE, YELLOW, ORANGE, PURPLE, PINK
+- Gray shades: LIGHT_GRAY, DARK_GRAY, DARKER_GRAY, LIGHT_GREY, DARK_GREY, DARKER_GREY
+- Blue variants: BLUE_A, BLUE_B, BLUE_C, BLUE_D, BLUE_E
+- Teal variants: TEAL, TEAL_A, TEAL_B, TEAL_C, TEAL_D, TEAL_E
+- Green variants: GREEN_A, GREEN_B, GREEN_C, GREEN_D, GREEN_E
+- Yellow variants: YELLOW_A, YELLOW_B, YELLOW_C, YELLOW_D, YELLOW_E
+- Gold variants: GOLD, GOLD_A, GOLD_B, GOLD_C, GOLD_D, GOLD_E
+- Red variants: RED_A, RED_B, RED_C, RED_D, RED_E
+- Maroon variants: MAROON, MAROON_A, MAROON_B, MAROON_C, MAROON_D, MAROON_E
+- Purple variants: PURPLE_A, PURPLE_B, PURPLE_C, PURPLE_D, PURPLE_E
+- Pink variants: PINK, LIGHT_PINK
+
+⚠️ CRITICAL: Colors like GREEN_SCREEN, NEON_GREEN, BRIGHT_BLUE, etc. DO NOT EXIST. Use only the colors listed above.
 
 ## SCREEN LAYOUT REQUIREMENTS
 
@@ -347,21 +363,21 @@ Use current Manim Community syntax:
 Follow this structure:
 
 ```python
-class AstronomyProblem(Scene):
+class PhysicsProblem(Scene):
     def construct(self):
         # Set background
         self.camera.background_color = BLACK
         
         # Section 1: Title
-        title = Text("Title", font_size=36).to_edge(UP, buff=0.1)
+        title = Text("Title", font_size=36, color=YELLOW).to_edge(UP, buff=0.1)
         self.play(Write(title))
         
         # Section 2: Main content
-        content = MathTex("formula").move_to(ORIGIN)
+        content = MathTex("formula", color=TEAL).move_to(ORIGIN)
         self.play(Write(content))
         
         # Section 3: Subtitle
-        subtitle = Text("explanation").to_edge(DOWN, buff=0.1)
+        subtitle = Text("explanation", font_size=24, color=WHITE).to_edge(DOWN, buff=0.1)
         self.add(subtitle)
         self.play(FadeIn(subtitle))
         
@@ -370,41 +386,6 @@ class AstronomyProblem(Scene):
         self.remove(title, content, subtitle)
         
         # Next section...
-```
-
-## HELPER FUNCTIONS
-
-Subtitle function:
-
-```python
-def create_subtitle(text_str, position=DOWN*3.2):
-    \"\"\"Create subtitle text at bottom of the screen\"\"\"
-    return Text(
-        text_str,
-        font_size=24,
-        color=WHITE
-    ).move_to(position).add_background_rectangle(
-        color=BLACK,
-        opacity=0.8,
-        buff=0.2
-    )
-```
-
-3D Surface function (if needed):
-
-```python
-def param_surface_from_func(f, u_range, v_range, resolution=30, color=BLUE_D, opacity=0.9):
-    \"\"\"Return a 3D surface defined by z = f(x,y).\"\"\"
-    return Surface(
-        lambda u, v: np.array([u, v, f(u, v)]),
-        u_range=u_range,
-        v_range=v_range,
-        checkerboard_colors=[BLUE_D, BLUE_E],
-        resolution=(resolution, resolution),
-        fill_opacity=opacity,
-        stroke_width=0.5,
-        stroke_color=WHITE,
-    ).set_color(color)
 ```
 
 ## TEXT AND LAYOUT BEST PRACTICES
@@ -426,15 +407,14 @@ Avoid overlapping:
 - Use .next_to() with proper buff values
 - Use .align_to() for consistent alignment
 - Use VGroup() to group related elements
-- Test positioning with different screen sizes
-- For bigger texts, don't make them go over the screen width - split text into multiple lines
+- For bigger texts, split into multiple lines instead of exceeding screen width
 
 ## ANIMATION BUILDING BLOCKS
 
 Math Expressions:
 
 ```python
-equation = MathTex(r"E = mc^2", font_size=32).move_to(ORIGIN)
+equation = MathTex(r"E = mc^2", font_size=32, color=BLUE).move_to(ORIGIN)
 self.play(Write(equation))
 
 # To highlight results:
@@ -445,8 +425,8 @@ self.play(Create(box))
 Showing Steps with Transform:
 
 ```python
-eq1 = MathTex(r"E = mc^2")
-eq2 = MathTex(r"E = (2)(3)^2")
+eq1 = MathTex(r"E = mc^2", color=WHITE)
+eq2 = MathTex(r"E = (2)(3)^2", color=WHITE)
 self.play(Write(eq1))
 self.wait(1)
 self.play(Transform(eq1, eq2))
@@ -461,26 +441,17 @@ arc = Arc(radius=1, start_angle=0, angle=PI/3, color=ORANGE)
 dot = Dot(color=RED)
 ```
 
-3D Objects (when needed):
-
-```python
-# Use Sphere() with proper resolution
-sphere = Sphere(radius=0.5, resolution=(20, 20), color=BLUE_E)
-axes3d = ThreeDAxes()
-self.play(Create(axes3d), Create(sphere))
-```
-
 ## SCENE FLOW / BEST PRACTICES
 
 The script should follow this sequence:
 
 1. Intro Title & Subtitle (problem statement)
-2. Display Givens (MathTex list of knowns)
+2. Display Givens (list of knowns)
 3. Show Formula (highlighted, maybe boxed)
 4. Step-by-Step Substitution (use Transform to morph equations)
 5. Final Result (boxed, large font, color highlight)
-6. Optional Visualization (Geometry: circles, arcs, lines; Astronomy: planets, stars, orbits)
-7. Summary Slide (Text + results)
+6. Optional Visualization (diagrams, circuits, etc.)
+7. Summary Slide (results recap)
 
 ## VALID ANIMATIONS TO USE
 
@@ -491,7 +462,6 @@ The script should follow this sequence:
 - ReplacementTransform()
 - Create() (for lines/shapes)
 - GrowFromCenter()
-- GrowArrow()
 - self.wait(time) for pacing
 - SurroundingRectangle() for highlights
 
@@ -514,12 +484,12 @@ NEVER use .format() with MathTex when mixing LaTeX and variables:
 
 ❌ WRONG - This causes KeyError:
 ```python
-step3 = MathTex(r"\\theta = 2 \\arctan\\left({{:f}}\\right) \\quad (\\text{{radians}})".format(val_inside_arctan))
+step3 = MathTex(r"\\theta = 2 \\arctan\\left({{:f}}\\right)".format(val))
 ```
 
 ✅ CORRECT - Use string concatenation:
 ```python
-step3 = MathTex(r"\\theta = 2 \\arctan\\left(" + f"{{val_inside_arctan:.6f}}" + r"\\right) \\quad (\\text{{radians}})")
+step3 = MathTex(r"\\theta = 2 \\arctan\\left(" + f"{{val:.6f}}" + r"\\right)")
 ```
 
 ### PROPER MATH TEX FORMATTING PATTERNS
@@ -527,7 +497,7 @@ step3 = MathTex(r"\\theta = 2 \\arctan\\left(" + f"{{val_inside_arctan:.6f}}" + 
 For single variables:
 ```python
 # Correct
-result = MathTex(r"\\theta \\approx " + f"{{theta_deg:.2f}}" + r"^\\circ")
+result = MathTex(r"\\theta \\approx " + f"{{theta_deg:.2f}}" + r"^\\circ", color=GREEN)
 
 # Wrong
 result = MathTex(r"\\theta \\approx {{:.2f}}^\\circ".format(theta_deg))
@@ -536,7 +506,7 @@ result = MathTex(r"\\theta \\approx {{:.2f}}^\\circ".format(theta_deg))
 For multiple variables:
 ```python
 # Correct
-equation = MathTex(r"E = " + f"{{mass:.1f}}" + r" \\times " + f"{{speed:.0f}}" + r"^2")
+equation = MathTex(r"E = " + f"{{mass:.1f}}" + r" \\times " + f"{{speed:.0f}}" + r"^2", color=BLUE)
 ```
 
 ### WHY THIS MATTERS
@@ -551,32 +521,33 @@ Before using MathTex with variables:
 1. ✅ Use string concatenation instead of .format()
 2. ✅ Use f-strings for number formatting
 3. ✅ Keep LaTeX and Python formatting separate
+4. ✅ Always specify a valid color from the approved list
 
-Common parameter issues to avoid:
-- ❌ stroke_dash_offset=0.2 parameter doesn't exist - remove it
-- ❌ align_to=LEFT in next_to() - use aligned_edge=LEFT instead
+Common issues to avoid:
+- ❌ Undefined colors (GREEN_SCREEN, NEON_GREEN, etc.)
+- ❌ stroke_dash_offset parameter (doesn't exist)
+- ❌ align_to=LEFT in next_to() (use aligned_edge=LEFT)
 
 ## CRITICAL MISTAKES TO AVOID
 
 NEVER:
+- Use undefined color constants
 - Let text overlap between sections
 - Skip cleanup between scenes
-- Use deprecated API methods (add_fixed_in_frame_mobjects, remove_fixed_in_frame_mobjects)
+- Use deprecated API methods
 - Mix old and new content without proper removal
 - Use incorrect video dimensions (always 480p, 15fps)
 - Use deprecated syntax like TexText, ShowCreation
-- Leave undefined variables (all colors, positions, constants must be declared)
+- Leave undefined variables
 - Use .format() with MathTex containing LaTeX
 
 ALWAYS:
+- Use only valid Manim color constants
 - Clean up completely before new content
 - Use proper section positioning
-- Test layout on 480p resolution
 - Use appropriate font sizes for 480p
 - Remove elements with both FadeOut() and self.remove()
 - Use current Manim Community API
-- Include proper error handling
-- Use consistent naming conventions
 - Use string concatenation with f-strings for MathTex
 
 ## OUTPUT REQUIREMENTS
@@ -590,15 +561,12 @@ Always provide:
 6. Clear comments for each section
 7. Equations that compile with LaTeX
 8. No undefined variables or syntax errors
-9. Final script must run standalone with Manim CE
-
-## SPECIAL NOTE
-
-If the user is asking a general question or wants to learn about something theoretical, explain the concept with real-life examples. Keep the language simple for the user to understand effectively.
+9. Only valid Manim color constants
+10. Final script must run standalone with Manim CE
 
 ---
 
-Remember: Clean up completely before each new scene, maintain 3-section layout, always use 480p/15fps configuration, and use string concatenation for MathTex with variables.
+Remember: Use ONLY valid Manim colors, clean up completely before each new scene, maintain 3-section layout, always use 480p/15fps configuration, and use string concatenation for MathTex with variables.
 
 Problem Text:
 {problem_text}
@@ -606,6 +574,36 @@ Problem Text:
 Results JSON:
 {results_str}
 """
+
+
+def build_transcript_prompt(manim_script: str, problem_text: str, results_json: dict) -> str:
+    results_str = json.dumps(results_json, indent=2)
+    return f"""
+You are an expert educational narrator. Analyze the provided Manim animation script and create a natural, engaging voiceover transcript that explains the problem and solution step-by-step.
+
+INSTRUCTIONS:
+1. Analyze the Manim script to understand the visual flow and timing
+2. Create a clear, conversational narration that follows the animation
+3. Keep it concise but educational - aim for 2-4 minutes of speech
+4. Use simple language suitable for high school students
+5. Explain each step as it appears in the animation
+6. Mention key values and results from the calculations
+7. Make it engaging and easy to follow
+8. Do NOT include any markdown, labels, or formatting - just plain speech text
+
+MANIM SCRIPT:
+{manim_script}
+
+ORIGINAL PROBLEM:
+{problem_text}
+
+CALCULATED RESULTS:
+{results_str}
+
+Generate a natural voiceover script that a teacher would use to narrate this animation. Output ONLY the transcript text, no markdown, no labels, just the speech text that should be spoken.
+"""
+
+
 @csrf_exempt
 @require_POST
 def generate_video(request):
@@ -741,11 +739,17 @@ def generate_video(request):
         os.makedirs(MEDIA_DIR, exist_ok=True)
         shutil.move(expected_video, final_video_path)
 
+        # ===== STEP 4: GENERATE TRANSCRIPT FROM MANIM SCRIPT =====
+        transcript_prompt = build_transcript_prompt(script_text, problem_text, results_json)
+        transcript_response = model.generate_content(transcript_prompt)
+        transcript_text = transcript_response.text.strip()
+
         return JsonResponse({
             "results": results_json,
             "video_file": video_filename,
             "video_url": f"/media/{video_filename}",
-            "class_name": class_name
+            "class_name": class_name,
+            "transcript": transcript_text
         })
 
     except subprocess.TimeoutExpired:
