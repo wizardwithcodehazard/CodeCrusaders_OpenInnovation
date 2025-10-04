@@ -83,3 +83,53 @@ def get_audio(request, filename):
         return HttpResponseNotFound("File not found")
 
     return FileResponse(open(path, "rb"), content_type="audio/wav")
+
+
+# matutor/views.py
+import os
+import google.generativeai as genai
+
+from django.http import JsonResponse, HttpResponseBadRequest
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+
+from django.conf import settings
+
+
+# Configure Gemini with API key from settings
+genai.configure(api_key=settings.GEMINI_API_KEY)
+
+
+@csrf_exempt
+@require_POST
+def image_to_text(request):
+    """
+    Endpoint: POST /api/image-to-text/
+    Accepts: multipart/form-data with 'image' field
+    Returns: JSON { "text": "..." }
+    """
+    if "image" not in request.FILES:
+        return HttpResponseBadRequest("No image uploaded")
+
+    image_file = request.FILES["image"]
+
+    try:
+        # Convert uploaded file into bytes
+        image_bytes = image_file.read()
+
+        # Load model (Gemini Pro Vision)
+        model = genai.GenerativeModel("gemini-2.5-flash")
+
+        # Call Gemini with image
+        response = model.generate_content([
+        {"mime_type": image_file.content_type, "data": image_bytes},
+        "Extract ONLY the exact text from this image. Do not add descriptions, interpretations, or summaries. If no text is found, return an empty string."])
+
+
+        # Extract text response
+        text_output = response.text if response and hasattr(response, "text") else ""
+
+        return JsonResponse({"text": text_output})
+
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
