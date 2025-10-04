@@ -769,3 +769,121 @@ def get_video(request, filename):
     if not os.path.exists(video_path):
         return JsonResponse({"error": "File not found"}, status=404)
     return FileResponse(open(video_path, "rb"), content_type="video/mp4")
+
+
+def build_explanation_prompt(problem_text: str, results_json: dict) -> str:
+    results_str = json.dumps(results_json, indent=2)
+    return f"""
+You are an expert teacher explaining a physics/mathematics problem to high school students. Your task is to provide a clear, step-by-step explanation of how to solve this problem.
+
+PROBLEM:
+{problem_text}
+
+CALCULATED RESULTS:
+{results_str}
+
+INSTRUCTIONS:
+1. Start with a brief introduction explaining what type of problem this is
+2. List the given information clearly
+3. Explain the formula or concept needed to solve the problem
+4. Break down the solution into clear, numbered steps
+5. Show the calculations with explanations for each step
+6. Explain WHY each step is necessary (don't just show calculations)
+7. State the final answer clearly
+8. Add a brief conclusion or key takeaway
+
+FORMATTING GUIDELINES:
+- Use markdown formatting for better readability
+- Use **bold** for important terms and values
+- Use numbered lists for steps
+- Use code blocks for formulas: `formula here`
+- Keep language simple and conversational
+- Avoid jargon; if you must use technical terms, explain them
+- Use real-world analogies when helpful
+- Make it educational and easy to follow
+
+Generate a complete step-by-step explanation that a student can easily understand and learn from.
+"""
+@csrf_exempt
+@require_POST
+def explain_problem(request):
+    if request.method != "POST":
+        return HttpResponseBadRequest("Only POST allowed")
+
+    # Parse JSON body
+    try:
+        if request.content_type == 'application/json':
+            data = json.loads(request.body.decode('utf-8'))
+            problem_text = data.get("problem")
+        else:
+            problem_text = request.POST.get("problem")
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        return HttpResponseBadRequest(f"Invalid request format: {str(e)}")
+
+    if not problem_text:
+        return HttpResponseBadRequest("Missing 'problem' field")
+
+    tmp_path = None
+    
+    try:
+        # ===== STEP 1: GENERATE PYTHON CODE FROM GEMINI =====
+        model = genai.GenerativeModel("gemini-2.5-flash")
+        response = model.generate_content(build_gemini_prompt(problem_text))
+
+        # Extract Python code (strip markdown if present)
+        code_text = response.text.strip()
+        if code_text.startswith("```python"):
+            code_text = code_text[len("```python"):].strip()
+        if code_text.endswith("```"):
+            code_text = code_text[:-3].strip()
+
+        # ===== STEP 2: WRITE TO TEMPORARY FILE =====
+        with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w", encoding="utf-8") as tmp:
+            tmp.write(code_text)
+            tmp_path = tmp.name
+
+        # ===== STEP 3: RUN THE SOLVER SCRIPT =====
+        proc = subprocess.run(
+            [sys.executable, tmp_path],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            encoding="utf-8",
+            errors="replace"
+        )
+
+        # Handle script errors
+        if proc.returncode != 0:
+            return JsonResponse({"error": "Solver failed", "details": proc.stderr.strip()}, status=500)
+
+        # ===== STEP 4: EXTRACT JSON FROM OUTPUT =====
+        stdout_clean = proc.stdout.strip()
+        json_start = stdout_clean.find("{")
+        json_end = stdout_clean.rfind("}") + 1
+        if json_start == -1 or json_end == -1:
+            return JsonResponse({"error": "No JSON output found", "raw": stdout_clean}, status=500)
+
+        try:
+            results_json = json.loads(stdout_clean[json_start:json_end])
+        except json.JSONDecodeError as e:
+            return JsonResponse({"error": f"Invalid JSON: {str(e)}", "raw": stdout_clean}, status=500)
+
+        # ===== STEP 5: GENERATE DETAILED EXPLANATION =====
+        explanation_prompt = build_explanation_prompt(problem_text, results_json)
+        explanation_response = model.generate_content(explanation_prompt)
+        explanation_text = explanation_response.text.strip()
+
+        return JsonResponse({
+            "problem": problem_text,
+            "results": results_json,
+            "explanation": explanation_text
+        })
+
+    except subprocess.TimeoutExpired:
+        return JsonResponse({"error": "Process timed out"}, status=500)
+    except Exception as e:
+        return JsonResponse({"error": str(e)}, status=500)
+    finally:
+        # Always clean up temp file
+        if tmp_path and os.path.exists(tmp_path):
+            os.unlink(tmp_path)
