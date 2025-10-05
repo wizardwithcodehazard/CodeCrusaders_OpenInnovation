@@ -1,0 +1,49 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Custom styles for the Wolftor app */
+body {
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+.gradient-bg {
+  background: linear-gradient(135deg, #1A1A3A 0%, #2A2A5A 100%);
+}
+
+.card-shadow {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.upload-area {
+  border: 2px dashed #E0E0E0;
+  transition: all 0.3s ease;
+}
+
+.upload-area:hover {
+  border-color: #FF7F00;
+  background-color: rgba(255, 127, 0, 0.05);
+}
+
+.upload-area.dragover {
+  border-color: #FF7F00;
+  background-color: rgba(255, 127, 0, 0.1);
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #2C2C4F;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #FF7F00;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #CD7F32;
+}
