@@ -1,0 +1,20 @@
+services:
+  - type: web
+    name: codecrusaders-manim
+    env: docker
+    region: oregon # or your preferred region
+    plan: starter # free tier
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: PYTHONUNBUFFERED
+        value: 1
+    # Add any other environment variables your app needs
+    # - key: SECRET_KEY
+    #   generateValue: true
+    # - key: DATABASE_URL
+    #   fromDatabase:
+    #     name: your-database-name
+    #     property: connectionString
