@@ -142,12 +142,13 @@ const ChatPage = () => {
           : "/api/chat-simple/";
 
         // IMPORTANT: chat-simple expects key 'message' or 'problem' — we send 'message'
+        // IMPORTANT: All endpoints expect key 'problem'
         response = await fetch(`${API_BASE_URL}${endpoint}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ message: problemText }),
+          body: JSON.stringify({ problem: problemText }),
         });
 
         const ct = response.headers.get("content-type") || "";

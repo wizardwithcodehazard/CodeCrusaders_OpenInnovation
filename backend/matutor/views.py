@@ -134,14 +134,22 @@ Generate the Python code now:
 """
 import sys
 
+import json
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
+from django.http import JsonResponse, HttpResponseBadRequest
+
 @csrf_exempt
 @require_POST
 def solve_problem(request):
-    problem_text = request.POST.get("problem")
-    if not problem_text:
-        return HttpResponseBadRequest("Missing 'problem' field")
-
     try:
+        # Parse JSON body
+        data = json.loads(request.body)
+        problem_text = data.get("problem")
+        
+        if not problem_text:
+            return HttpResponseBadRequest("Missing 'problem' field")
+
         # Step 1: Generate Python code from Gemini
         model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(build_gemini_prompt(problem_text))
@@ -193,10 +201,12 @@ def solve_problem(request):
 
         return JsonResponse({"results": results})
 
+    except json.JSONDecodeError:
+        return HttpResponseBadRequest("Invalid JSON in request body")
     except Exception as e:
         return JsonResponse({"error": str(e)}, status=500)
     
-
+    
 import os
 import sys
 import json
@@ -1011,14 +1021,14 @@ def chat_with_wolftor_simple(request):
     try:
         if request.content_type == 'application/json':
             data = json.loads(request.body.decode('utf-8'))
-            user_message = data.get("message")
+            user_message = data.get("problem")
         else:
-            user_message = request.POST.get("message")
+            user_message = request.POST.get("problem")
     except (json.JSONDecodeError, UnicodeDecodeError) as e:
         return HttpResponseBadRequest(f"Invalid request format: {str(e)}")
 
     if not user_message:
-        return HttpResponseBadRequest("Missing 'message' field")
+        return HttpResponseBadRequest("Missing 'problem' field")
 
     try:
         # ===== CALL GEMINI WITH WOLFTOR PROMPT =====
