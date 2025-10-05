@@ -18,7 +18,8 @@ from dotenv import load_dotenv
 load_dotenv()  # take environment variables from .env.
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-
+WOLFRAM_CONSUMER_KEY=os.getenv("WOLFRAM_CONSUMER_KEY")
+WOLFRAM_CONSUMER_SECRET=os.getenv("WOLFRAM_CONSUMER_SECRET")
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 

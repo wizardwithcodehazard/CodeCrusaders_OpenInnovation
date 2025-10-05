@@ -54,12 +54,14 @@ const ChatPage = () => {
 
     let userMessage = "";
     let messageType = "";
+    let originalProblemText = ""; // Store the actual problem text
 
     if (uploadedFile) {
       userMessage = `Uploaded image: ${uploadedFile.name}`;
       messageType = "image";
     } else if (problemText.trim()) {
       userMessage = problemText.trim();
+      originalProblemText = problemText.trim(); // Save original text
       messageType = "text";
     } else {
       return;
@@ -88,7 +90,6 @@ const ChatPage = () => {
           body: formData,
         });
 
-        // Safe parse
         const ct = response.headers.get("content-type") || "";
         const data = ct.includes("application/json")
           ? await response.json()
@@ -119,7 +120,8 @@ const ChatPage = () => {
             type: "ai",
             content: explainData,
             extractedText: extractedText,
-            tutorMode: mathematicianMode, // preserve tutor mode flag
+            problemText: extractedText, // Store for video generation
+            tutorMode: mathematicianMode,
           };
 
           setMessages((prev) => [...prev, aiMessage]);
@@ -135,20 +137,17 @@ const ChatPage = () => {
           setMessages((prev) => [...prev, aiMessage]);
         }
       } else {
-        // Handle text problem: route to chat-simple when mathematicianMode is false (default),
-        // otherwise route to explain-problem when mathematicianMode is true.
+        // Handle text problem
         const endpoint = mathematicianMode
           ? "/api/explain-problem/"
           : "/api/chat-simple/";
 
-        // IMPORTANT: chat-simple expects key 'message' or 'problem' — we send 'message'
-        // IMPORTANT: All endpoints expect key 'problem'
         response = await fetch(`${API_BASE_URL}${endpoint}`, {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({ problem: problemText }),
+          body: JSON.stringify({ problem: originalProblemText }),
         });
 
         const ct = response.headers.get("content-type") || "";
@@ -160,6 +159,7 @@ const ChatPage = () => {
           id: Date.now() + 1,
           type: "ai",
           content: data,
+          problemText: originalProblemText, // Store the original problem for video generation
           tutorMode: mathematicianMode,
         };
 
@@ -186,6 +186,19 @@ const ChatPage = () => {
 
   const generateVideo = async (messageId, problemText) => {
     console.log("🎬 Starting video generation for message:", messageId);
+    console.log("📝 Problem text:", problemText);
+    
+    if (!problemText || problemText.trim() === "") {
+      console.error("❌ No problem text provided for video generation");
+      const errorMessage = {
+        id: Date.now(),
+        type: "ai",
+        content: "Cannot generate video: No problem text available.",
+      };
+      setMessages((prev) => [...prev, errorMessage]);
+      return;
+    }
+
     setGeneratingVideo(messageId);
 
     try {
@@ -204,12 +217,22 @@ const ChatPage = () => {
 
       console.log("✅ Video generation response received:", data);
 
-      // Update the message with video data
-      setMessages((prev) =>
-        prev.map((msg) =>
-          msg.id === messageId ? { ...msg, videoData: data } : msg
-        )
-      );
+      if (data.error) {
+        console.error("❌ Video generation failed:", data.error);
+        const errorMessage = {
+          id: Date.now(),
+          type: "ai",
+          content: `Video generation failed: ${data.error}`,
+        };
+        setMessages((prev) => [...prev, errorMessage]);
+      } else {
+        // Update the message with video data
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === messageId ? { ...msg, videoData: data } : msg
+          )
+        );
+      }
     } catch (error) {
       console.error("❌ Video generation error:", error);
 
@@ -511,17 +534,12 @@ const ChatPage = () => {
                     {message.type === "ai" &&
                       message.content &&
                       !message.videoData &&
-                      message.tutorMode && (
+                      message.tutorMode &&
+                      message.problemText && (
                         <div className="mt-4 pt-4 border-t border-white/10">
                           <button
                             onClick={() =>
-                              generateVideo(
-                                message.id,
-                                message.content.problem ||
-                                  message.extractedText ||
-                                  message.content.response ||
-                                  ""
-                              )
+                              generateVideo(message.id, message.problemText)
                             }
                             disabled={generatingVideo === message.id}
                             className="bg-white/10 backdrop-blur-md text-white px-5 py-2.5 rounded-lg hover:bg-white/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 font-medium border border-white/20"
@@ -549,7 +567,7 @@ const ChatPage = () => {
                         </h4>
                         <video
                           controls
-                          className="w-[50vw]  rounded-lg border border-white/20"
+                          className="w-full max-w-2xl rounded-lg border border-white/20"
                         >
                           <source
                             src={`${API_BASE_URL}${message.videoData.video_url}`}
