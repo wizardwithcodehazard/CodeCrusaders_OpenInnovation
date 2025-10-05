@@ -7,7 +7,7 @@ import {
   Sparkles,
   Paperclip,
 } from "lucide-react";
-import NavBar from "./Navbar";
+import NavBar from "./NavBar";
 
 const ChatPage = () => {
   const [uploadedFile, setUploadedFile] = useState(null);
