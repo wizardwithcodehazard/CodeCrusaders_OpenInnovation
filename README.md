@@ -100,7 +100,7 @@ All in under 30 seconds—turning homework hurdles into highlights.
 ## 📦 Installation & Setup: Get Started in Minutes!
 
 ### Prerequisites
-- Python 3.8+
+- Python 3.13
 - Node.js 14+
 - Wolfram Alpha API Key ([Sign up here](https://developer.wolfram.com))
 - Manim ([Installation Guide](https://docs.manim.community))
@@ -139,7 +139,7 @@ For production, consider Docker—compose file in the works!
 
 - **As a Student**: Jump in, input your problem, and hit "Solve & Visualize." Let the animation unfold your understanding!
 - **As a Contributor**: Star the repo, fork it, and PR your ideas—add new animations, subjects, or integrations.
-- **Demo Teaser**: [Check our live demo](https://wolftor-demo.example.com) (Placeholder—deploy your own for a spin!).
+- **Demo Video of Product**: [Check our live demo](https://wolftor.vercel.app/) 
 
 ---
 
